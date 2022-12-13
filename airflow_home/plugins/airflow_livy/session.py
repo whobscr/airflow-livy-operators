@@ -200,6 +200,7 @@ class LivySessionOperator(BaseOperator):
 
     template_fields = [
         "name",
+        "session_id",
         "statements",
     ]
 
@@ -227,6 +228,8 @@ class LivySessionOperator(BaseOperator):
         statemt_poll_period_sec=20,
         http_conn_id="livy",
         spill_logs=False,
+        session_id=None,
+        close_livy_session=True,
         *args,
         **kwargs,
     ):
@@ -259,11 +262,13 @@ class LivySessionOperator(BaseOperator):
         self.statemt_poll_period_sec = statemt_poll_period_sec
         self.http_conn_id = http_conn_id
         self.spill_logs = spill_logs
-        self.session_id = None
+        self.session_id = session_id
+        self.close_livy_session = close_livy_session
 
     def execute(self, context):
         try:
-            self.create_session()
+            if not self.session_id:
+                self.create_session()
             logging.info(f"Session has been created with id = {self.session_id}.")
             LivySessionCreationSensor(
                 session_id=self.session_id,
@@ -305,7 +310,8 @@ class LivySessionOperator(BaseOperator):
             if self.session_id is not None:
                 if self.spill_logs:
                     self.spill_session_logs()
-                self.close_session()
+                if self.close_livy_session:
+                    self.close_session()
 
     def create_session(self):
         headers = {"X-Requested-By": "airflow", "Content-Type": "application/json"}
